@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import Card from '../components/Card'
 import ErrorMessage from '../components/ErrorMessage'
+import Button from '../components/Button'
 import Loader from '../components/Loader'
 import useApi from '../hooks/useApi'
 import apiService from '../services/api'
@@ -46,8 +48,69 @@ const SectionTitle = ({ title, subtitle }) => (
   </div>
 )
 
+const formatTimestamp = (value) => {
+  if (!value) return 'N/A'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString()
+}
+
+const syncStatusLabel = (value) => {
+  const status = String(value || '').toUpperCase()
+  if (status.includes('SUCCESS') || status.includes('COMPLETED') || status.includes('DONE')) return 'Success: Portfolio data synced'
+  if (status.includes('RUNNING') || status.includes('SYNCING') || status.includes('IN_PROGRESS')) return 'Syncing...'
+  if (status.includes('FAIL') || status.includes('ERROR')) return 'Failed: Sync failed'
+  return value ? String(value) : ''
+}
+
 const PortfolioIntelligencePage = () => {
-  const { data, loading, error, refetch } = useApi(() => apiService.getPortfolioIntelligence(), [])
+  const intelligenceApi = useApi(() => apiService.getPortfolioIntelligence(), [])
+  const scoresApi = useApi(() => apiService.getScores(), [])
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
+  const [syncError, setSyncError] = useState('')
+  const [syncResult, setSyncResult] = useState(null)
+  const [expandedSymbols, setExpandedSymbols] = useState(() => new Set())
+
+  const { data, loading, error, refetch } = intelligenceApi
+
+  useEffect(() => {
+    const latestSync = data?.lastSync || data?.sync || data?.syncStatus || data?.dataFreshnessSummary
+    const message = syncStatusLabel(latestSync?.status || latestSync?.message || data?.syncMessage)
+    if (message) setSyncMessage(message)
+  }, [data])
+
+  const refreshDependentData = async () => {
+    await Promise.all([refetch(), scoresApi.refetch()])
+  }
+
+  const handleSync = async () => {
+    if (syncLoading) return
+
+    setSyncLoading(true)
+    setSyncError('')
+    setSyncMessage('Syncing...')
+    setSyncResult(null)
+
+    try {
+      const result = await apiService.syncPortfolioData()
+      setSyncResult(result || null)
+
+      const statusMessage =
+        syncStatusLabel(result?.status || result?.message) ||
+        (result?.message ? String(result.message) : 'Success: Portfolio data synced')
+
+      setSyncMessage(statusMessage)
+
+      await refreshDependentData()
+    } catch (apiError) {
+      const message = apiError.response?.data?.message || apiError.message || 'Sync failed'
+      setSyncError(`Failed: Sync failed with error message: ${message}`)
+      setSyncMessage('')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
 
   if (loading) return <Loader />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
@@ -63,6 +126,14 @@ const PortfolioIntelligencePage = () => {
   const thesisMonitoring = questions.thesisBreakMonitoring?.holdings || []
   const sellMonitoring = questions.sellMonitoring || {}
   const freshness = data?.dataFreshnessSummary || {}
+  const lastSyncAt =
+    syncResult?.lastSyncAt ||
+    syncResult?.syncedAt ||
+    freshness.lastSyncedAt ||
+    freshness.generatedAt ||
+    data?.lastSyncAt ||
+    data?.syncedAt
+  const syncResults = syncResult?.results || syncResult?.stocks || syncResult?.perStockResults || []
 
   const columns = [
     { key: 'symbol', title: 'Symbol' },
@@ -78,6 +149,21 @@ const PortfolioIntelligencePage = () => {
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Portfolio Intelligence</h2>
         <p className="text-sm text-slate-500">Decision-support view based on backend calculated portfolio signals.</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-slate-500">
+            <span className="font-medium text-slate-700">Last sync:</span> {formatTimestamp(lastSyncAt)}
+            {syncMessage ? <span className="ml-3 font-medium text-emerald-700">{syncMessage}</span> : null}
+            {syncError ? <span className="ml-3 font-medium text-red-700">{syncError}</span> : null}
+          </div>
+          <Button
+            variant="primary"
+            onClick={handleSync}
+            disabled={syncLoading}
+            aria-busy={syncLoading}
+          >
+            {syncLoading ? 'Syncing...' : 'Sync Portfolio Data'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -157,6 +243,58 @@ const PortfolioIntelligencePage = () => {
         <Card title="Next Investment Candidates" value={formatNumber(nextCandidates.length, 0)} />
         <Card title="Strength Rankings" value={formatNumber(byStrength.length, 0)} />
       </div>
+
+      {syncResults.length ? (
+        <Card title="Sync Results" subtitle="Per-stock backend sync outcome">
+          <div className="mt-4 space-y-3">
+            {syncResults.map((item, index) => {
+              const symbol = item.symbol || item.ticker || `Item ${index + 1}`
+              const isOpen = expandedSymbols.has(symbol)
+              const toggleOpen = () => {
+                setExpandedSymbols((current) => {
+                  const next = new Set(current)
+                  if (next.has(symbol)) next.delete(symbol)
+                  else next.add(symbol)
+                  return next
+                })
+              }
+
+              return (
+                <details key={`${symbol}-${index}`} open={isOpen} className="rounded-lg border border-slate-200">
+                  <summary
+                    className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 text-sm font-medium text-slate-900"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      toggleOpen()
+                    }}
+                  >
+                    <span>{symbol}</span>
+                    <span className="text-xs font-normal text-slate-500">{isOpen ? 'Collapse' : 'Expand'}</span>
+                  </summary>
+                  <div className="grid gap-3 border-t border-slate-200 p-4 text-sm md:grid-cols-2">
+                    <div>
+                      <p className="text-slate-500">Market data</p>
+                      <p className="font-medium text-slate-900">{friendlyLabel(item.marketData ?? item.marketDataStatus ?? item.market ?? 'N/A')}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Financial data</p>
+                      <p className="font-medium text-slate-900">{friendlyLabel(item.financialData ?? item.financialDataStatus ?? item.financial ?? 'N/A')}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Ownership</p>
+                      <p className="font-medium text-slate-900">{friendlyLabel(item.ownership ?? item.ownershipStatus ?? 'N/A')}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Corporate actions</p>
+                      <p className="font-medium text-slate-900">{friendlyLabel(item.corporateActions ?? item.corporateActionsStatus ?? 'N/A')}</p>
+                    </div>
+                  </div>
+                </details>
+              )
+            })}
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <SectionTitle title="Holdings" subtitle="Per-stock intelligence from the backend" />
