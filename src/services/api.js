@@ -44,6 +44,7 @@ export const apiService = {
   getPortfolioIntelligence: () => get('/portfolio/intelligence'),
   getPortfolioIntelligenceBySymbol: (symbol) =>
     get(`/portfolio/intelligence/${encodeURIComponent(symbol)}`),
+  syncPortfolioData: () => post('/portfolio/sync'),
 }
 
 export default apiService
