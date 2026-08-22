@@ -6,6 +6,8 @@ import {
   FiCreditCard,
   FiHome,
   FiPieChart,
+  FiShield,
+  FiClipboard,
 } from 'react-icons/fi'
 
 const menu = [
@@ -13,6 +15,8 @@ const menu = [
   { label: 'Transactions', path: '/transactions', icon: FiCreditCard },
   { label: 'Holdings', path: '/holdings', icon: FiBriefcase },
   { label: 'Analysis', path: '/analysis', icon: FiActivity },
+  { label: 'Fundamental Rules', path: '/fundamental-rules', icon: FiClipboard },
+  { label: 'Intelligence', path: '/portfolio-intelligence', icon: FiShield },
   { label: 'Dividends', path: '/dividends', icon: FiBarChart2 },
   { label: 'Portfolio Summary', path: '/summary', icon: FiPieChart },
 ]

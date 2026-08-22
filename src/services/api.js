@@ -35,10 +35,15 @@ export const apiService = {
   deleteTransaction: (id) => remove(`/transactions/${id}`),
   getHoldings: () => get('/holdings'),
   runAnalysis: () => post('/analyze'),
+  getScores: () => get('/score'),
+  getScoreBySymbol: (symbol) => get(`/score/${encodeURIComponent(symbol)}`),
   getDividends: (year) => get('/dividends', year ? { year } : {}),
   getDividendBySymbol: (symbol, year) =>
     get(`/dividends/${encodeURIComponent(symbol)}`, year ? { year } : {}),
   searchStocks: (query) => get('/stocks/search', { q: query }),
+  getPortfolioIntelligence: () => get('/portfolio/intelligence'),
+  getPortfolioIntelligenceBySymbol: (symbol) =>
+    get(`/portfolio/intelligence/${encodeURIComponent(symbol)}`),
 }
 
 export default apiService
