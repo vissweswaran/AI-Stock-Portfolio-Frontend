@@ -10,18 +10,47 @@ import { formatDateTime, formatMoney, formatNumber, formatPercent } from '../uti
 const DashboardPage = () => {
   const summaryApi = useApi(() => apiService.getSummary(), [])
   const dashboardApi = useApi(() => apiService.getDashboard(), [])
+  const analysisApi = useApi(() => apiService.getAnalysisPortfolio(), [])
+
+  const decisionsBySymbol = useMemo(() => {
+    const map = {}
+    for (const [symbol, decision] of Object.entries(analysisApi.data?.decisions || {})) {
+      map[symbol.toUpperCase()] = decision
+    }
+    return map
+  }, [analysisApi.data])
 
   const buyOpportunities = useMemo(
     () =>
-      (dashboardApi.data?.holdings || []).filter(
-        (holding) => holding.recommendation === 'Buy Opportunity',
-      ),
-    [dashboardApi.data],
+      (dashboardApi.data?.holdings || []).filter((holding) => {
+        const decision = decisionsBySymbol[holding.symbol.toUpperCase()]?.decision
+        return decision === 'ADD' || decision === 'BUY'
+      }),
+    [dashboardApi.data, decisionsBySymbol],
   )
 
-  if (summaryApi.loading || dashboardApi.loading) return <Loader />
+  const holdStocks = useMemo(
+    () =>
+      (dashboardApi.data?.holdings || []).filter((holding) => {
+        const decision = decisionsBySymbol[holding.symbol.toUpperCase()]?.decision
+        return decision === 'HOLD'
+      }),
+    [dashboardApi.data, decisionsBySymbol],
+  )
+
+  const sellStocks = useMemo(
+    () =>
+      (dashboardApi.data?.holdings || []).filter((holding) => {
+        const decision = decisionsBySymbol[holding.symbol.toUpperCase()]?.decision
+        return decision === 'SELL'
+      }),
+    [dashboardApi.data, decisionsBySymbol],
+  )
+
+  if (summaryApi.loading || dashboardApi.loading || analysisApi.loading) return <Loader />
   if (summaryApi.error) return <ErrorMessage message={summaryApi.error} onRetry={summaryApi.refetch} />
   if (dashboardApi.error) return <ErrorMessage message={dashboardApi.error} onRetry={dashboardApi.refetch} />
+  if (analysisApi.error) return <ErrorMessage message={analysisApi.error} onRetry={analysisApi.refetch} />
 
   const summary = summaryApi.data || {}
 
@@ -41,6 +70,9 @@ const DashboardPage = () => {
         <Card variant="holdings" title="Total Holdings" value={formatNumber(summary.totalStocks, 0)} />
         <Card variant="transactions" title="Total Transactions" value={formatNumber(summary.totalTransactions, 0)} />
         <Card variant="dividend" title="Dividend This Year" value={formatMoney(summary.totalDividendThisYear)} />
+        <Card variant="buy-opportunities" title="Buy Opportunities" value={formatNumber(buyOpportunities.length, 0)} />
+        <Card variant="hold" title="Hold Stocks" value={formatNumber(holdStocks.length, 0)} />
+        <Card variant="sell" title="Sell Stocks" value={formatNumber(sellStocks.length, 0)} />
         <Card variant="analysis" title="Last Analysis" value={formatDateTime(summary.lastAnalysisTime)} />
       </div>
 
@@ -52,20 +84,25 @@ const DashboardPage = () => {
       <Card
         variant="buy-opportunities"
         title="Buy Opportunities"
-        subtitle={buyOpportunities.length ? '' : 'No buy opportunities found yet.'}
+        subtitle={buyOpportunities.length ? 'Stocks the Smart Analysis recommends adding to.' : 'No buy opportunities from Smart Analysis yet.'}
       >
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {buyOpportunities.map((holding) => (
-            <div key={holding.symbol} className="rounded-lg bg-green-50 p-4">
-              <div className="flex items-center justify-between">
-                <strong>{holding.symbol}</strong>
-                <span className="text-green-700">{formatMoney(holding.currentPrice)}</span>
+          {buyOpportunities.map((holding) => {
+            const decision = decisionsBySymbol[holding.symbol.toUpperCase()]
+            return (
+              <div key={holding.symbol} className="rounded-lg bg-green-50 p-4">
+                <div className="flex items-center justify-between">
+                  <strong>{holding.symbol}</strong>
+                  <span className="text-green-700">{formatMoney(holding.currentPrice)}</span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {decision?.decision || '—'} · Score{' '}
+                  {decision?.score != null ? formatNumber(decision.score, 0) : '—'} · Confidence{' '}
+                  {decision?.confidence?.level || '—'}
+                </p>
               </div>
-              <p className="mt-2 text-sm text-slate-600">
-                Profit: {formatMoney(holding.profitLoss)} ({formatPercent(holding.profitPercentage)})
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Card>
     </div>
