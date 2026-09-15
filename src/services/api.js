@@ -10,8 +10,8 @@ const get = async (path, params = {}) => {
   return response.data
 }
 
-const post = async (path, data = {}) => {
-  const response = await api.post(path, data)
+const post = async (path, data = {}, config = {}) => {
+  const response = await api.post(path, data, config)
   return response.data
 }
 
@@ -45,6 +45,30 @@ export const apiService = {
   getPortfolioIntelligenceBySymbol: (symbol) =>
     get(`/portfolio/intelligence/${encodeURIComponent(symbol)}`),
   syncPortfolioData: () => post('/portfolio/sync'),
+  syncMarketData: (symbol) =>
+    post(symbol ? `/market-data/sync/${encodeURIComponent(symbol)}` : '/market-data/sync', {}, { timeout: 60000 }),
+  syncFinancialData: (symbol) =>
+    post(symbol ? `/financial-data/sync/${encodeURIComponent(symbol)}` : '/financial-data/sync', {}, { timeout: 60000 }),
+  syncOwnershipData: (symbol) =>
+    post(symbol ? `/ownership/sync/${encodeURIComponent(symbol)}` : '/ownership/sync', {}, { timeout: 60000 }),
+  syncCorporateActions: (symbol) =>
+    post(symbol ? `/corporate-actions/sync/${encodeURIComponent(symbol)}` : '/corporate-actions/sync', {}, { timeout: 60000 }),
+  getAnalysisResults: () => get('/analysis/results'),
+  getAnalysisResultsBySymbol: (symbol) =>
+    get(`/analysis/results/${encodeURIComponent(symbol)}`),
+  getAnalysisPortfolio: () => get('/analysis/portfolio'),
+  getAnalysisRankings: () => get('/analysis/rankings'),
+  getMergedAnalysis: (symbol) => get(`/analysis/${encodeURIComponent(symbol)}`),
+  analyzeAnalysisSymbol: (symbol, payload = {}) =>
+    post(`/analysis/analyze/${encodeURIComponent(symbol)}`, payload),
+  analyzeAnalysisPortfolio: (payload) =>
+    post('/analysis/analyze', payload, { timeout: 180000 }),
+  getAnalysisDecision: (symbol) =>
+    get(`/analysis/decision/${encodeURIComponent(symbol)}`),
+  getAnalysisValuation: (symbol) =>
+    get(`/analysis/valuation/${encodeURIComponent(symbol)}`),
+  getAnalysisReadiness: (symbol) =>
+    get(`/analysis/readiness/${encodeURIComponent(symbol)}`),
 }
 
 export default apiService

@@ -3,13 +3,12 @@ import {
   FiBriefcase,
   FiClock,
   FiDollarSign,
-  FiHash,
   FiLayers,
   FiPauseCircle,
   FiPieChart,
   FiRepeat,
-  FiSearch,
   FiShoppingCart,
+  FiTrendingDown,
   FiTrendingUp,
 } from 'react-icons/fi'
 
@@ -69,14 +68,9 @@ export const CARD_THEMES = {
     gradient: 'from-sky-50 via-white to-white',
     iconClass: 'text-sky-100',
   },
-  review: {
-    Icon: FiSearch,
-    gradient: 'from-yellow-50 via-white to-white',
-    iconClass: 'text-yellow-100',
-  },
-  quantity: {
-    Icon: FiHash,
-    gradient: 'from-purple-50 via-white to-white',
-    iconClass: 'text-purple-100',
+  sell: {
+    Icon: FiTrendingDown,
+    gradient: 'from-red-50 via-white to-white',
+    iconClass: 'text-red-100',
   },
 }
